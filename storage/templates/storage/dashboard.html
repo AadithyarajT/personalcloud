@@ -1,0 +1,431 @@
+{% extends 'base.html' %}
+{% block title %}Dashboard — PersonalCloud{% endblock %}
+{% block content %}
+
+<!-- ===== VIDEO PLAYER MODAL ===== -->
+<div class="player-modal hidden" id="videoModal">
+  <div class="player-modal-backdrop" id="videoBackdrop"></div>
+  <div class="player-modal-box video-modal-box">
+    <div class="player-modal-header">
+      <span class="player-modal-title" id="videoTitle">Video Player</span>
+      <div class="player-modal-controls-top">
+        <button class="pm-btn" id="videoPiP" title="Picture in Picture">⧉</button>
+        <button class="pm-btn" id="videoClose">✕</button>
+      </div>
+    </div>
+
+    <div class="video-screen-wrap">
+      <video id="mainVideo" preload="metadata"></video>
+      <div class="video-overlay" id="videoOverlay">
+        <div class="vo-play-icon" id="voPlayIcon">▶</div>
+      </div>
+    </div>
+
+    <!-- Video Controls -->
+    <div class="video-controls">
+      <div class="vc-progress-wrap">
+        <span class="vc-time" id="vCurrentTime">0:00</span>
+        <div class="vc-progress-bar" id="vProgressBar">
+          <div class="vc-buffered"   id="vBuffered"></div>
+          <div class="vc-played"     id="vPlayed"></div>
+          <div class="vc-thumb"      id="vThumb"></div>
+        </div>
+        <span class="vc-time" id="vDuration">0:00</span>
+      </div>
+      <div class="vc-row">
+        <div class="vc-left">
+          <button class="vc-btn" id="vPrevBtn"  title="Previous">⏮</button>
+          <button class="vc-btn" id="vPlayBtn"  title="Play/Pause (Space)">▶</button>
+          <button class="vc-btn" id="vNextBtn"  title="Next">⏭</button>
+          <button class="vc-btn" id="vMuteBtn"  title="Mute">🔊</button>
+          <input  type="range"   id="vVolume" class="vc-volume" min="0" max="1" step="0.05" value="1">
+          <span class="vc-time-inline" id="vTimeInline">0:00 / 0:00</span>
+        </div>
+        <div class="vc-right">
+          <select id="vSpeed" class="vc-select" title="Playback speed">
+            <option value="0.25">0.25×</option>
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1.25×</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+          </select>
+          <button class="vc-btn" id="vLoopBtn"   title="Loop">🔁</button>
+          <button class="vc-btn" id="vFullBtn"   title="Fullscreen (F)">⛶</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Video Playlist -->
+    <div class="player-playlist" id="videoPlaylist">
+      <div class="playlist-header">
+        <span>Queue</span>
+        <button class="vc-btn" id="vShuffleBtn" title="Shuffle">⇄</button>
+      </div>
+      <ul class="playlist-list" id="videoPlaylistItems">
+        {% for f in video_playlist %}
+        <li class="playlist-item" data-id="{{ f.id }}" data-url="{% url 'stream_file' f.id %}" data-title="{{ f.filename }}">
+          <span class="pl-icon">🎬</span>
+          <span class="pl-name">{{ f.filename|truncatechars:36 }}</span>
+          <span class="pl-owner">{% if f.owner != user %}@{{ f.owner.username }}{% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ===== AUDIO PLAYER MODAL ===== -->
+<div class="player-modal hidden" id="audioModal">
+  <div class="player-modal-backdrop" id="audioBackdrop"></div>
+  <div class="player-modal-box audio-modal-box">
+    <div class="player-modal-header">
+      <span class="player-modal-title" id="audioTitle">Music Player</span>
+      <button class="pm-btn" id="audioClose">✕</button>
+    </div>
+
+    <!-- Album art / visualizer -->
+    <div class="audio-art-wrap">
+      <div class="audio-art" id="audioArt">🎵</div>
+      <div class="audio-meta">
+        <div class="audio-track-name"  id="audioTrackName">No track</div>
+        <div class="audio-track-owner" id="audioTrackOwner"></div>
+      </div>
+    </div>
+
+    <audio id="mainAudio" preload="metadata"></audio>
+
+    <!-- AB Loop indicator -->
+    <div class="ab-indicator" id="abIndicator" style="display:none">
+      AB Loop: <span id="abStartLabel">—</span> → <span id="abEndLabel">—</span>
+      <button class="ab-clear" id="abClear">✕</button>
+    </div>
+
+    <!-- Audio Progress -->
+    <div class="ac-progress-wrap">
+      <span class="vc-time" id="aCurrentTime">0:00</span>
+      <div class="ac-progress-bar" id="aProgressBar">
+        <div class="ac-played"   id="aPlayed"></div>
+        <div class="ac-thumb"    id="aThumb"></div>
+        <div class="ab-region"   id="abRegion" style="display:none"></div>
+        <div class="ab-a-marker" id="abAMarker" style="display:none"></div>
+        <div class="ab-b-marker" id="abBMarker" style="display:none"></div>
+      </div>
+      <span class="vc-time" id="aDuration">0:00</span>
+    </div>
+
+    <!-- AB Loop controls -->
+    <div class="ab-controls">
+      <button class="ab-btn" id="abSetA" title="Set loop start point">Set A</button>
+      <button class="ab-btn" id="abSetB" title="Set loop end point">Set B</button>
+      <button class="ab-btn" id="abToggle" title="Toggle AB loop">AB Loop: OFF</button>
+    </div>
+
+    <!-- Audio Main Controls -->
+    <div class="ac-row">
+      <button class="vc-btn" id="aShuffleBtn" title="Shuffle">⇄</button>
+      <button class="vc-btn" id="aPrevBtn"    title="Previous">⏮</button>
+      <button class="vc-btn ac-play-btn" id="aPlayBtn" title="Play/Pause">▶</button>
+      <button class="vc-btn" id="aNextBtn"    title="Next">⏭</button>
+      <button class="vc-btn" id="aRepeatBtn"  title="Repeat">🔁</button>
+    </div>
+
+    <div class="ac-row ac-row-2">
+      <button class="vc-btn" id="aMuteBtn" title="Mute">🔊</button>
+      <input  type="range"   id="aVolume" class="vc-volume" min="0" max="1" step="0.05" value="1">
+      <select id="aSpeed" class="vc-select" title="Playback speed">
+        <option value="0.5">0.5×</option>
+        <option value="0.75">0.75×</option>
+        <option value="1" selected>1×</option>
+        <option value="1.25">1.25×</option>
+        <option value="1.5">1.5×</option>
+        <option value="2">2×</option>
+      </select>
+    </div>
+
+    <!-- Playlist -->
+    <div class="player-playlist">
+      <div class="playlist-header"><span>Playlist</span></div>
+      <ul class="playlist-list" id="audioPlaylistItems">
+        {% for f in music_playlist %}
+        <li class="playlist-item" data-id="{{ f.id }}" data-url="{% url 'stream_file' f.id %}" data-title="{{ f.filename }}" data-owner="{% if f.owner != user %}@{{ f.owner.username }}{% endif %}">
+          <span class="pl-icon">🎵</span>
+          <span class="pl-name">{{ f.filename|truncatechars:36 }}</span>
+          <span class="pl-owner">{% if f.owner != user %}@{{ f.owner.username }}{% endif %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ===== IMAGE VIEWER MODAL ===== -->
+<div class="player-modal hidden" id="imageModal">
+  <div class="player-modal-backdrop" id="imageBackdrop"></div>
+  <div class="player-modal-box image-modal-box">
+    <div class="player-modal-header">
+      <span class="player-modal-title" id="imageTitle">Image Viewer</span>
+      <div class="player-modal-controls-top">
+        <button class="pm-btn" id="imageZoomIn"  title="Zoom in">＋</button>
+        <button class="pm-btn" id="imageZoomOut" title="Zoom out">－</button>
+        <button class="pm-btn" id="imageReset"   title="Reset zoom">⊙</button>
+        <button class="pm-btn" id="imageClose">✕</button>
+      </div>
+    </div>
+    <div class="image-viewer-wrap" id="imageViewerWrap">
+      <img id="mainImage" src="" alt="">
+    </div>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div class="dashboard-wrapper">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-profile">
+      {% if user.profile.avatar %}
+        <img src="{{ user.profile.avatar.url }}" alt="avatar" class="sidebar-avatar">
+      {% else %}
+        <div class="sidebar-avatar-placeholder">{{ user.username|first|upper }}</div>
+      {% endif %}
+      <div>
+        <div class="sidebar-name">{{ user.get_full_name|default:user.username }}</div>
+        <div class="sidebar-username">@{{ user.username }}</div>
+      </div>
+    </div>
+
+    <div class="sidebar-stats">
+      <div class="stat-item">
+        <span class="stat-value">{{ my_files_count }}</span>
+        <span class="stat-label">Files</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{{ storage_used }}</span>
+        <span class="stat-label">Used</span>
+      </div>
+    </div>
+
+    <!-- Upload Form -->
+    <div class="upload-zone">
+      <form method="post" action="{% url 'upload_file' %}" enctype="multipart/form-data" id="uploadForm">
+        {% csrf_token %}
+        <div class="drop-area" id="dropArea">
+          <div class="drop-icon">⬆</div>
+          <p class="drop-text">Drop files here<br>or click to browse</p>
+          <input type="file" name="file" id="fileInput" class="file-hidden" required>
+        </div>
+        <div id="filePreview" class="file-preview hidden"></div>
+        <div class="form-group" style="margin-top:12px;">
+          <label class="small-label">Category</label>
+          <select name="category" class="form-select">
+            <option value="other">📁 Auto-detect</option>
+            <option value="photo">🖼 Photo</option>
+            <option value="video">🎬 Video</option>
+            <option value="music">🎵 Music</option>
+            <option value="document">📄 Document</option>
+          </select>
+        </div>
+        <div class="form-group" style="margin-top:8px;">
+          <label class="small-label">Visibility</label>
+          <select name="visibility" class="form-select">
+            <option value="private">🔒 Private</option>
+            <option value="shared">🌐 Shared</option>
+          </select>
+        </div>
+        <button type="submit" class="btn-upload" id="uploadBtn" disabled>Upload File</button>
+      </form>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="dashboard-main">
+    <div class="tab-nav">
+      <button class="tab-btn active" data-tab="my-files">
+        My Files <span class="tab-badge">{{ my_files.count }}</span>
+      </button>
+      <button class="tab-btn" data-tab="shared-files">
+        Shared <span class="tab-badge">{{ shared_files.count }}</span>
+      </button>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <button class="cat-btn active" data-category="all">☁ All</button>
+      <button class="cat-btn" data-category="photo">🖼 Photos</button>
+      <button class="cat-btn" data-category="video">🎬 Videos</button>
+      <button class="cat-btn" data-category="music">🎵 Music</button>
+      <button class="cat-btn" data-category="document">📄 Docs</button>
+      <button class="cat-btn" data-category="other">📁 Other</button>
+    </div>
+
+    <!-- My Files -->
+    <div class="tab-content active" id="tab-my-files">
+      {% if my_files %}
+      <div class="file-grid">
+        {% for file in my_files %}
+        <div class="file-card" data-category="{{ file.category }}">
+          <div class="file-card-icon file-icon-{{ file.get_icon }}">
+            {% if file.get_icon == 'image' %}🖼
+            {% elif file.get_icon == 'video' %}🎬
+            {% elif file.get_icon == 'audio' %}🎵
+            {% elif file.get_icon == 'pdf' %}📄
+            {% elif file.get_icon == 'archive' %}📦
+            {% elif file.get_icon == 'document' %}📝
+            {% elif file.get_icon == 'spreadsheet' %}📊
+            {% elif file.get_icon == 'text' %}📃
+            {% else %}📁{% endif %}
+          </div>
+          <div class="file-card-info">
+            <div class="file-card-name" title="{{ file.filename }}">{{ file.filename|truncatechars:30 }}</div>
+            <div class="file-card-meta">
+              <span>{{ file.get_file_size_display }}</span>
+              <span>{{ file.uploaded_at|date:"M d, Y" }}</span>
+            </div>
+            <div class="file-card-badges">
+              <span class="badge badge-{{ file.visibility }}">
+                {% if file.visibility == 'private' %}🔒 Private{% else %}🌐 Shared{% endif %}
+              </span>
+              <span class="badge badge-category">
+                {% if file.category == 'photo' %}🖼 Photo
+                {% elif file.category == 'video' %}🎬 Video
+                {% elif file.category == 'music' %}🎵 Music
+                {% elif file.category == 'document' %}📄 Doc
+                {% else %}📁 Other{% endif %}
+              </span>
+            </div>
+          </div>
+          <div class="file-card-actions">
+            {% if file.category == 'video' %}
+            <button class="btn-icon btn-play"
+              data-type="video"
+              data-id="{{ file.id }}"
+              data-url="{% url 'stream_file' file.id %}"
+              data-title="{{ file.filename }}"
+              title="Play">▶</button>
+            {% elif file.category == 'music' %}
+            <button class="btn-icon btn-play"
+              data-type="audio"
+              data-id="{{ file.id }}"
+              data-url="{% url 'stream_file' file.id %}"
+              data-title="{{ file.filename }}"
+              title="Play">▶</button>
+            {% elif file.category == 'photo' %}
+            <button class="btn-icon btn-play"
+              data-type="image"
+              data-id="{{ file.id }}"
+              data-url="{% url 'stream_file' file.id %}"
+              data-title="{{ file.filename }}"
+              title="View">👁</button>
+            {% endif %}
+            <a href="{% url 'download_file' file.id %}" class="btn-icon" title="Download">⬇</a>
+            <form method="post" action="{% url 'toggle_visibility' file.id %}" style="display:inline">
+              {% csrf_token %}
+              <button type="submit" class="btn-icon" title="Toggle visibility">
+                {% if file.visibility == 'private' %}🌐{% else %}🔒{% endif %}
+              </button>
+            </form>
+            <form method="post" action="{% url 'delete_file' file.id %}" style="display:inline" onsubmit="return confirmDelete('{{ file.filename|escapejs }}')">
+              {% csrf_token %}
+              <button type="submit" class="btn-icon btn-danger" title="Delete">🗑</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">☁</div>
+        <h3>No files yet</h3>
+        <p>Upload your first file using the panel on the left.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Shared Files -->
+    <div class="tab-content" id="tab-shared-files">
+      {% if shared_files %}
+      <div class="file-grid">
+        {% for file in shared_files %}
+        <div class="file-card" data-category="{{ file.category }}">
+          <div class="file-card-icon file-icon-{{ file.get_icon }}">
+            {% if file.get_icon == 'image' %}🖼
+            {% elif file.get_icon == 'video' %}🎬
+            {% elif file.get_icon == 'audio' %}🎵
+            {% elif file.get_icon == 'pdf' %}📄
+            {% elif file.get_icon == 'archive' %}📦
+            {% elif file.get_icon == 'document' %}📝
+            {% elif file.get_icon == 'spreadsheet' %}📊
+            {% elif file.get_icon == 'text' %}📃
+            {% else %}📁{% endif %}
+          </div>
+          <div class="file-card-info">
+            <div class="file-card-name" title="{{ file.filename }}">{{ file.filename|truncatechars:30 }}</div>
+            <div class="file-card-meta">
+              <span>{{ file.get_file_size_display }}</span>
+              <span>by @{{ file.owner.username }}</span>
+            </div>
+            <div class="file-card-meta"><span>{{ file.uploaded_at|date:"M d, Y" }}</span></div>
+            <div class="file-card-badges">
+              <span class="badge badge-category">
+                {% if file.category == 'photo' %}🖼 Photo
+                {% elif file.category == 'video' %}🎬 Video
+                {% elif file.category == 'music' %}🎵 Music
+                {% elif file.category == 'document' %}📄 Doc
+                {% else %}📁 Other{% endif %}
+              </span>
+            </div>
+          </div>
+          <div class="file-card-actions">
+            {% if file.category == 'video' %}
+            <button class="btn-icon btn-play"
+              data-type="video"
+              data-id="{{ file.id }}"
+              data-url="{% url 'stream_file' file.id %}"
+              data-title="{{ file.filename }}"
+              title="Play">▶</button>
+            {% elif file.category == 'music' %}
+            <button class="btn-icon btn-play"
+              data-type="audio"
+              data-id="{{ file.id }}"
+              data-url="{% url 'stream_file' file.id %}"
+              data-title="{{ file.filename }}"
+              title="Play">▶</button>
+            {% elif file.category == 'photo' %}
+            <button class="btn-icon btn-play"
+              data-type="image"
+              data-id="{{ file.id }}"
+              data-url="{% url 'stream_file' file.id %}"
+              data-title="{{ file.filename }}"
+              title="View">👁</button>
+            {% endif %}
+            <a href="{% url 'download_file' file.id %}" class="btn-icon" title="Download">⬇</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">🌐</div>
+        <h3>No shared files</h3>
+        <p>Files shared by other users will appear here.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function confirmDelete(filename) {
+  return confirm('Delete "' + filename + '"? This cannot be undone.');
+}
+</script>
+{% endblock %}
+
+
+
+
+
+

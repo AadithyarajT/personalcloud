@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Profile — PersonalCloud{% endblock %}
+{% block content %}
+<div class="page-container">
+  <div class="profile-card">
+    <div class="profile-hero">
+      {% if user.profile.avatar %}
+        <img src="{{ user.profile.avatar.url }}" alt="Avatar" class="profile-avatar-lg">
+      {% else %}
+        <div class="profile-avatar-placeholder-lg">{{ user.username|first|upper }}</div>
+      {% endif %}
+      <div class="profile-info">
+        <h1>{{ user.get_full_name|default:user.username }}</h1>
+        <p class="profile-username">@{{ user.username }}</p>
+        <p class="profile-email">{{ user.email }}</p>
+      </div>
+    </div>
+    {% if user.profile.bio %}
+    <div class="profile-bio">
+      <h3>About</h3>
+      <p>{{ user.profile.bio }}</p>
+    </div>
+    {% endif %}
+    <div class="profile-actions">
+      <a href="{% url 'edit_profile' %}" class="btn-primary">Edit Profile</a>
+      <a href="{% url 'change_password' %}" class="btn-secondary">Change Password</a>
+    </div>
+  </div>
+</div>
+{% endblock %}
