@@ -146,7 +146,7 @@ Visit: **http://localhost:8000**
 
 ## Future Extensions
 
-- **Streaming**: Add range-request support in `download_file_view`
+
 - **REST API**: Add `djangorestframework` + token auth
 - **Mobile App**: Connect via REST API
 - **Cloud Storage**: Swap `FileField` storage backend to S3 via `django-storages`
